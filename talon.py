@@ -6,6 +6,9 @@ import argparse
 PORT_MAX_VALUE = 65535
 host = '0.0.0.0'
 port = 4444
+with open("unicode_logo.txt") as file:
+    logo = file.read()
+print(f"{fg('steel_blue_1b')}{logo}{attr(0)}")
 
 
 def parse_arguments():
