@@ -1,40 +1,46 @@
 import socket
-from colored import fg, bg, attr
+from sty import fg, bg, ef, rs
 import ipaddress
 import argparse
+from dotenv import load_dotenv, dotenv_values
 
-PORT_MAX_VALUE = 65535
-host = '0.0.0.0'
-port = 4444
-with open("unicode_logo.txt") as file:
-    logo = file.read()
-print(f"{fg('steel_blue_1b')}{logo}{attr(0)}")
+
+def print_logo():
+    with open("unicode_logo.txt") as file:
+        logo = file.read()
+    print(f"{fg(35, 173, 245)}{logo}{rs.all}")
+
+
+def charge_templates():
+    global errors
+    load_dotenv()
+    errors = dotenv_values('errors_templates.txt')
 
 
 def parse_arguments():
     global host
     global port
-    parser = argparse.ArgumentParser(prog="Talon")
+    PORT_MAX_VALUE = 65535
+    parser = argparse.ArgumentParser(prog="Talon", usage=errors['I_USAGE'].format(**globals()))
     parser.add_argument('host')
     parser.add_argument('port', type=int,)
     parser.add_argument('-c', '--count', required=False, )
     args = parser.parse_args()
-    print(args)
-    try:
-        lhost = ipaddress.ip_address(args.host)
-        if not lhost.is_private:
-            print(f"{bg('yellow_1')}{fg('red_3a')} Warning! {attr(0)} This IP Address is not a private one")
-            exit()
-        if args.port > PORT_MAX_VALUE or args.port < 0:
-            print(f"{fg('red')} ERROR: {attr(0)}This is a not valid port")
-            exit()
-    except ValueError:
-        print(f"""{fg('red')} ERROR: {attr(0)}Invalid input. Example:
-python3 talon.py {fg('grey_19')}{bg('gold_3b')} host {attr(0)} {fg('grey_19')}{bg('cornflower_blue')} port {attr(0)}""")
+    host = args.host
+    port = args.port
+    lhost = ipaddress.ip_address(args.host)
+    if not lhost.is_private:
+        print(errors['W_PUBLIC_IP'].format(**globals()))
         exit()
-    
+    if args.port > PORT_MAX_VALUE or args.port < 0:
+        print(errors['E_INVALID_PORT'].format(**globals()))
+        exit()
 
+
+charge_templates()
 parse_arguments()
+print(host, port)
+print_logo()
 addr_info = socket.getaddrinfo(host, port, type=socket.AF_INET)[0]
 BUFFER_SIZE = 1024
 

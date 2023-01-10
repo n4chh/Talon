@@ -1,0 +1,4 @@
+W_PUBLICC_IP="{bg.yellow}{fg.red} Warning! {rs.all} This IP Address is not a private one"
+E_INVALID_PORT="{fg.red}{ef.bold} ERROR[2]: {rs.all}This is a not valid port"
+E_INVALID_INPUT="{fg.red}{ef.bold} ERROR[1]: {rs.all}Invalid input." 
+I_USAGE="Python3 {fg.green}talon.py {fg.da_grey}{bg.li_yellow} host {rs.all} {fg.da_grey}{bg.li_blue} port {rs.all}"
