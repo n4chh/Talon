@@ -24,11 +24,15 @@ def parse_arguments():
     parser = argparse.ArgumentParser(prog="Talon", usage=errors['I_USAGE'].format(**globals()))
     parser.add_argument('host')
     parser.add_argument('port', type=int,)
-    parser.add_argument('-c', '--count', required=False, )
+    parser.add_argument('-c', '--count', required=False,)
     args = parser.parse_args()
     host = args.host
     port = args.port
-    lhost = ipaddress.ip_address(args.host)
+    try:
+        lhost = ipaddress.ip_address(args.host)
+    except ValueError:
+        print(errors['E_INVALID_IP'].format(**globals()))
+        exit()
     if not lhost.is_private:
         print(errors['W_PUBLIC_IP'].format(**globals()))
         exit()
@@ -36,6 +40,13 @@ def parse_arguments():
         print(errors['E_INVALID_PORT'].format(**globals()))
         exit()
 
+
+class session:
+    def __init__(self, server_host, server_port):
+        try:
+            self.s_host = ipaddress.IPv4Address(server_host)
+        except ValueError:
+            print(errors['E_INVALID_IP'].format(**globals()))
 
 charge_templates()
 parse_arguments()
