@@ -2,7 +2,8 @@ import socket
 from sty import fg, bg, ef, rs
 import ipaddress
 import argparse
-from dotenv import load_dotenv, dotenv_values
+from dotenv import dotenv_values
+import pyotp
 
 
 def print_logo():
@@ -13,7 +14,6 @@ def print_logo():
 
 def charge_templates():
     global errors
-    load_dotenv()
     errors = dotenv_values('errors_templates.txt')
 
 
@@ -44,9 +44,18 @@ def parse_arguments():
 class session:
     def __init__(self, server_host, server_port):
         try:
-            self.s_host = ipaddress.IPv4Address(server_host)
+            self.l_host = ipaddress.IPv4Address(server_host)
+            self.l_port = server_port
         except ValueError:
             print(errors['E_INVALID_IP'].format(**globals()))
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.id = 424242#Aqui vamos a usar para cifrar esto un Diffie Helman (DHP)
+
+    def connect(self):
+        self.sock.bind((self.l_host, self.l_port))
+        self.sock.listen(1)
+        self.conn, self.r_addr = self.sock.accept()
+
 
 charge_templates()
 parse_arguments()
