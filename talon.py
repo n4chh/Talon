@@ -3,7 +3,6 @@ from sty import fg, bg, ef, rs
 import ipaddress
 import argparse
 from dotenv import dotenv_values
-import pyotp
 
 
 def print_logo():
@@ -14,6 +13,8 @@ def print_logo():
 
 def charge_templates():
     global errors
+    global basic
+    basic = dotenv_values('basic_templates.txt')
     errors = dotenv_values('errors_templates.txt')
 
 
@@ -21,13 +22,15 @@ def parse_arguments():
     global host
     global port
     PORT_MAX_VALUE = 65535
-    parser = argparse.ArgumentParser(prog="Talon", usage=errors['I_USAGE'].format(**globals()))
-    parser.add_argument('host')
-    parser.add_argument('port', type=int,)
+    parser = argparse.ArgumentParser(
+        prog="Talon", usage=errors['I_USAGE'].format(**globals()))
+    parser.add_argument('-H', '--host', default="0.0.0.0", required=False)
+    parser.add_argument('-p', '--port', type=int, default=443, required=False)
     parser.add_argument('-c', '--count', required=False,)
     args = parser.parse_args()
     host = args.host
     port = args.port
+
     try:
         lhost = ipaddress.ip_address(args.host)
     except ValueError:
@@ -41,39 +44,56 @@ def parse_arguments():
         exit()
 
 
-class session:
-    def __init__(self, server_host, server_port):
+class Session:
+    def __init__(self, server_host, server_port, buffer_size=2048):
         try:
-            self.l_host = ipaddress.IPv4Address(server_host)
+            self.buf_size = buffer_size
+            self.l_host = server_host
             self.l_port = server_port
+            self.addr = (server_host, server_port)
         except ValueError:
             print(errors['E_INVALID_IP'].format(**globals()))
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.id = 424242#Aqui vamos a usar para cifrar esto un Diffie Helman (DHP)
+
+    def start(self):
+        try:
+            self.connect()
+            self.recvData()
+            self.sock.close()
+
+        except socket.error as err:
+            print(errors['E_CUSTOM'].format(**globals()))
 
     def connect(self):
-        self.sock.bind((self.l_host, self.l_port))
-        self.sock.listen(1)
+        self.sock.bind(self.addr)
+        self.sock.listen(5)
         self.conn, self.r_addr = self.sock.accept()
 
+    def recvData(self):
+        try:
+            while True:
+                result = b""
+                self.buffer = ""
+                self.buffer = self.conn.recv(self.buf_size)
+                while len(self.buffer) != 0:
+                    result += self.buffer
+                    self.buffer = self.conn.recv(self.buf_size)
+                    self.buffer = ""
+                    print(result)
+                if len(self.buffer) == 0:
+                    break
+            print("DATA: ", result)
+        except socket.error as err:
+            print(errors['E_CUSTOM'].format(**globals()))
 
-charge_templates()
-parse_arguments()
-print(host, port)
-print_logo()
-addr_info = socket.getaddrinfo(host, port, type=socket.AF_INET)[0]
-BUFFER_SIZE = 1024
+    # def sendData(self):
 
-session = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-session.bind(addr_info[-1])
-session.listen(5)
-conn, remote_addr = session.accept()
-with conn:
-    while True:
-        print("Conexion establecida con:", remote_addr)
-        data = conn.recv(BUFFER_SIZE)
-        if not data:
-            break
-        else:
-            print("Datos recibidos", data.decode('utf-8'))
-        conn.send(data)
+
+if __name__ == "__main__":
+    charge_templates()
+    parse_arguments()
+    print_logo()
+    addr_info = socket.getaddrinfo(host, port, type=socket.AF_INET)[0]
+    session = Session(host, port)
+    print(basic['B_START_SES'].format(**globals()))
+    session.start()
