@@ -21,15 +21,19 @@ def charge_templates():
 def parse_arguments():
     global host
     global port
+    global buffer_size
     PORT_MAX_VALUE = 65535
     parser = argparse.ArgumentParser(
         prog="Talon", usage=errors['I_USAGE'].format(**globals()))
     parser.add_argument('-H', '--host', default="0.0.0.0", required=False)
     parser.add_argument('-p', '--port', type=int, default=443, required=False)
     parser.add_argument('-c', '--count', required=False,)
+    parser.add_argument('-b', '--buffer-size',
+                        metavar="buffer_size", type=int, default=2048)
     args = parser.parse_args()
     host = args.host
     port = args.port
+    buffer_size = args.buffer_size
 
     try:
         lhost = ipaddress.ip_address(args.host)
@@ -45,9 +49,9 @@ def parse_arguments():
 
 
 class Session:
-    def __init__(self, server_host, server_port, buffer_size=2048):
+    def __init__(self, server_host, server_port, buf_size):
         try:
-            self.buf_size = buffer_size
+            self.buf_size = buf_size
             self.l_host = server_host
             self.l_port = server_port
             self.addr = (server_host, server_port)
@@ -71,15 +75,18 @@ class Session:
 
     def recvData(self):
         try:
+            i = 0
             while True:
                 result = b""
                 self.buffer = ""
                 self.buffer = self.conn.recv(self.buf_size)
-                while len(self.buffer) != 0:
+                print("LINEA", i)
+                while len(self.buffer) and chr(self.buffer[-1]) != '\n':
+                    print()
                     result += self.buffer
                     self.buffer = self.conn.recv(self.buf_size)
-                    self.buffer = ""
-                    print(result)
+                    print("Resultado", result)
+                i += 1
                 if len(self.buffer) == 0:
                     break
             print("DATA: ", result)
@@ -94,6 +101,6 @@ if __name__ == "__main__":
     parse_arguments()
     print_logo()
     addr_info = socket.getaddrinfo(host, port, type=socket.AF_INET)[0]
-    session = Session(host, port)
+    session = Session(host, port, buffer_size)
     print(basic['B_START_SES'].format(**globals()))
     session.start()
