@@ -103,9 +103,14 @@ class Session:
     
     def handle_io(self):
         while True and self.status:
-            self.prompt()
-            self.send_data()
-            self.recv_data()
+            rs, ws, _ = select.select([self.conn], [self.conn], [])
+            if rs:
+                self.recv_data()
+            if ws:
+                self.prompt()
+                if self.cmd == "exit":
+                    break 
+                self.send_data()
 
     def prompt(self):
         prompt = ANSI("{fg.li_blue}TAL(•)N {fg.grey}[-|>{rs.all} ".format(
@@ -122,18 +127,11 @@ class Session:
         print(basic['B_CONN_ACCEPTED'].format(**globals()))
 
     def recv_data(self):
-        self.buffer = []
-        try:
-            while True:
-                bytes = self.conn.recv(self.buf_size)
-                print
-                self.buffer.append(bytes)
-                if len(bytes) == 0:
-                    break
-        except:
-            if not self.conn:
-                self.status = False
-            pass
+        self.buffer = [] 
+
+        bytes = self.conn.recv(self.buf_size)
+        self.buffer.append(bytes)
+    
         # sys.stdout.write(b''.join(self.buffer).decode())
         # print(b''.join(self.buffer).decode(), end="")
         # sys.stdout.flush()

