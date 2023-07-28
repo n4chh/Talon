@@ -25,6 +25,7 @@ class Session():
 
     def handle_io(self):
         try:
+            self.socket.setblocking(0)
             while True:
                 self.recv_cmd()
                 if self.parse_cmd():
@@ -79,8 +80,9 @@ class Session():
     def connect(self): 
         try:
             self.socket.connect(self.address)
-            print("connected")
-            # self.socket.setblocking(0)
+            print("connected")   
+            self.handle_io()
+
             # while True:
             #     self.chunks = []
             #     try:
