@@ -24,17 +24,17 @@ class Session():
         return False
 
     def handle_io(self):
-        try:
+        while True:
             self.socket.setblocking(0)
-            while True:
+            try:    
                 self.recv_cmd()
                 if self.parse_cmd():
                     output = self.exec_internal_cmd()
                 else:
                     output = self.exec_cmd()
                 self.socket.sendall(output.output.encode('utf-8'))
-        except(BlockingIOError):
-            pass
+            except(BlockingIOError):
+                pass
             
 
 
