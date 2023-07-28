@@ -1,7 +1,14 @@
 import socket
+import json
 from sty import fg, bg, ef, rs
 import ipaddress
+from prompt_toolkit import PromptSession
+from prompt_toolkit.formatted_text import ANSI
 import argparse
+import fcntl
+import select
+import os
+import sys
 from dotenv import dotenv_values
 
 
@@ -17,11 +24,16 @@ def charge_templates():
     basic = dotenv_values('basic_templates.txt')
     errors = dotenv_values('errors_templates.txt')
 
+def set_nonblocking(fd):
+    flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+    flags = flags | os.O_NONBLOCK
+    fcntl.fcntl(fd, fcntl.F_SETFL, flags)
 
 def parse_arguments():
     global host
     global port
     global buffer_size
+    global quiet
     PORT_MAX_VALUE = 65535
     parser = argparse.ArgumentParser(
         prog="Talon", usage=errors['I_USAGE'].format(**globals()))
@@ -30,7 +42,9 @@ def parse_arguments():
     parser.add_argument('-c', '--count', required=False,)
     parser.add_argument('-b', '--buffer-size',
                         metavar="buffer_size", type=int, default=2048)
+    parser.add_argument('-q', '--quiet', required=False)
     args = parser.parse_args()
+    quiet = args.quiet
     host = args.host
     port = args.port
     buffer_size = args.buffer_size
@@ -50,57 +64,114 @@ def parse_arguments():
 
 class Session:
     def __init__(self, server_host, server_port, buf_size):
-        try:
-            self.buf_size = buf_size
-            self.l_host = server_host
-            self.l_port = server_port
-            self.addr = (server_host, server_port)
-        except ValueError:
-            print(errors['E_INVALID_IP'].format(**globals()))
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # try:
+        self.buf_size = buf_size
+        self.l_host = server_host
+        self.l_port = server_port
+        self.addr = (server_host, server_port)
+        self.ps = PromptSession()
+        # except ValueError:
+        # print(errors['E_INVALID_IP'].format(**globals()))
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    def kill(self):
+        self.socket.close()
 
     def start(self):
         try:
+            
             self.connect()
-            self.recvData()
-            self.sock.close()
+            # self.shell()
+            self.handle_io()
+                
+            self.socket.close()
 
         except socket.error as err:
-            print(errors['E_CUSTOM'].format(**globals()))
+            print(errors['E_CUSTOM'].format(**globals()), err)
+
+    def handle_io_rev_shell(self):
+        set_nonblocking(sys.stdin)
+       
+        while True and self.status: 
+            sin = [self.conn, sys.stdin]  
+            rs, _, _, = select.select(sin, [], [])
+            if self.conn in rs:
+                self.recv_data()
+            if sys.stdin in rs:
+                self.cmd = sys.stdin.read(1080)
+                self.send_data()
+    
+    def handle_io(self):
+        while True and self.status:
+            self.prompt()
+            self.send_data()
+            self.recv_data()
+
+    def prompt(self):
+        prompt = ANSI("{fg.li_blue}TAL(•)N {fg.grey}[-|>{rs.all} ".format(
+            **globals()))
+        self.cmd = self.ps.prompt(prompt)
 
     def connect(self):
-        self.sock.bind(self.addr)
-        self.sock.listen(5)
-        self.conn, self.r_addr = self.sock.accept()
+        self.socket.bind(self.addr)
+        self.socket.listen(5)
+        self.conn, self.r_addr = self.socket.accept()
+        # self.conn.shutdown(socket.SHUT_WR)
+        self.conn.setblocking(False)
+        self.status = True
+        print(basic['B_CONN_ACCEPTED'].format(**globals()))
 
-    def recvData(self):
+    def recv_data(self):
+        self.buffer = []
         try:
-            i = 0
             while True:
-                result = b""
-                self.buffer = ""
-                self.buffer = self.conn.recv(self.buf_size)
-                print("LINEA", i)
-                while len(self.buffer) and chr(self.buffer[-1]) != '\n':
-                    print()
-                    result += self.buffer
-                    self.buffer = self.conn.recv(self.buf_size)
-                    print("Resultado", result)
-                i += 1
-                if len(self.buffer) == 0:
+                bytes = self.conn.recv(self.buf_size)
+                print
+                self.buffer.append(bytes)
+                if len(bytes) == 0:
                     break
-            print("DATA: ", result)
-        except socket.error as err:
-            print(errors['E_CUSTOM'].format(**globals()))
+        except:
+            if not self.conn:
+                self.status = False
+            pass
+        # sys.stdout.write(b''.join(self.buffer).decode())
+        # print(b''.join(self.buffer).decode(), end="")
+        # sys.stdout.flush()
+        # print(b''.join(self.buffer).decode(), end="")
+        # print(json.loads((b''.join(self.buffer)).decode('utf-8')))
+        
 
-    # def sendData(self):
+    def send_data(self):
+        # try:
+        data = (self.cmd).encode()
+        self.conn.sendall(data)
+        # except socket.error as err:
+        # print(errors['E_CUSTOM'].format(**globals()), err)
 
 
 if __name__ == "__main__":
+    # talon_autocomplete = WordCompleter("new", "exit", "whoami")
+    prompt = ANSI("{fg.li_cyan}TAL(•)N{rs.all} |> ".format(**globals()))
     charge_templates()
     parse_arguments()
-    print_logo()
+    
+    # set_nonblocking(sys.stdout)
+    if not quiet:
+        print_logo()
     addr_info = socket.getaddrinfo(host, port, type=socket.AF_INET)[0]
-    session = Session(host, port, buffer_size)
-    print(basic['B_START_SES'].format(**globals()))
-    session.start()
+    ps = PromptSession()
+    while True:
+        cmd = ps.prompt(prompt)
+        sessions = []
+        if cmd == "exit":
+            for elem in sessions:
+                elem.kill()
+            print("{fg.blue}[|>{fg.white}{ef.bold} ByE!!".format(**globals()))
+            exit(0)
+        elif cmd == "new":
+            session = Session(host, port, buffer_size)
+            print(basic['B_START_SES'].format(**globals()))
+            session.start()
+            print("nice")
+        else:
+            print(errors['E_UNKOWN_CMD'].format(**globals()))
