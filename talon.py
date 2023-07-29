@@ -81,16 +81,17 @@ class Session:
         try:
             
             self.connect()
-            # self.shell()
-            self.handle_io()
+            self.handle_io_rev_shell()
+            # self.handle_io()
                 
             self.socket.close()
-
+            print(basic['B_END_SES'].format(**globals()))
         except socket.error as err:
             print(errors['E_CUSTOM'].format(**globals()), err)
 
     def handle_io_rev_shell(self):
         set_nonblocking(sys.stdin)
+        set_nonblocking(sys.stdout)
        
         while True and self.status: 
             sin = [self.conn, sys.stdin]  
@@ -103,17 +104,23 @@ class Session:
     
     def handle_io(self):
         while True and self.status:
+            self.prompt()
+            if self.cmd == "exit":
+                break 
+            self.send_data()
+            try:
+                self.recv_data()
+            except (BlockingIOError):
+                rs, _, _= select.select([self.conn], [], [])
+                self.recv_data()
+            # rs, _, _ =  select.select([self.conn], [], [])
             rs, ws, _ = select.select([self.conn], [self.conn], [])
             if rs:
+                print("checkpoint")
                 self.recv_data()
-            if ws:
-                self.prompt()
-                if self.cmd == "exit":
-                    break 
-                self.send_data()
 
     def prompt(self):
-        prompt = ANSI("{fg.li_blue}TAL(•)N {fg.grey}[-|>{rs.all} ".format(
+        prompt = ANSI("{fg.li_blue}TAL(•)N {fg.grey}[--|>{rs.all} ".format(
             **globals()))
         self.cmd = self.ps.prompt(prompt)
 
@@ -127,17 +134,16 @@ class Session:
         print(basic['B_CONN_ACCEPTED'].format(**globals()))
 
     def recv_data(self):
-        self.buffer = [] 
-
-        bytes = self.conn.recv(self.buf_size)
-        self.buffer.append(bytes)
-    
+        self.buffer = self.conn.recv(self.buf_size)
+        print(self.buffer)
+        # print((b''.join(self.buffer)).decode(), end='')
+        # PRUEBAS QUE SE REALIZARON CON LA REVERSESHELL
         # sys.stdout.write(b''.join(self.buffer).decode())
         # print(b''.join(self.buffer).decode(), end="")
         # sys.stdout.flush()
         # print(b''.join(self.buffer).decode(), end="")
         # print(json.loads((b''.join(self.buffer)).decode('utf-8')))
-        
+         
 
     def send_data(self):
         # try:

