@@ -70,6 +70,7 @@ class Session:
         self.l_port = server_port
         self.addr = (server_host, server_port)
         self.ps = PromptSession()
+        self.cmd = None
         # except ValueError:
         # print(errors['E_INVALID_IP'].format(**globals()))
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -81,8 +82,8 @@ class Session:
         try:
             
             self.connect()
-            self.handle_io_rev_shell()
-            # self.handle_io()
+            # self.handle_io_rev_shell()
+            self.handle_io()
                 
             self.socket.close()
             print(basic['B_END_SES'].format(**globals()))
@@ -105,19 +106,20 @@ class Session:
     def handle_io(self):
         while True and self.status:
             self.prompt()
-            if self.cmd == "exit":
-                break 
-            self.send_data()
-            try:
-                self.recv_data()
-            except (BlockingIOError):
-                rs, _, _= select.select([self.conn], [], [])
-                self.recv_data()
-            # rs, _, _ =  select.select([self.conn], [], [])
-            rs, ws, _ = select.select([self.conn], [self.conn], [])
-            if rs:
-                print("checkpoint")
-                self.recv_data()
+            if self.cmd:
+                if self.cmd == "exit":
+                    self.send_data()
+                    break
+                self.send_data()
+                rs, _, _ =  select.select([self.conn], [], [])
+                while rs:
+                    print("checkpoint")
+                    try:
+                        self.recv_data()
+                        rs, _, _ =  select.select([self.conn], [self.conn], [])
+                    except(BlockingIOError):
+                        rs, _, _ = select.select([self.conn], [self.conn], [])
+                        self.recv_data()
 
     def prompt(self):
         prompt = ANSI("{fg.li_blue}TAL(•)N {fg.grey}[--|>{rs.all} ".format(
@@ -135,7 +137,8 @@ class Session:
 
     def recv_data(self):
         self.buffer = self.conn.recv(self.buf_size)
-        print(self.buffer)
+        data = self.buffer
+        print(data, end="")
         # print((b''.join(self.buffer)).decode(), end='')
         # PRUEBAS QUE SE REALIZARON CON LA REVERSESHELL
         # sys.stdout.write(b''.join(self.buffer).decode())
@@ -148,6 +151,7 @@ class Session:
     def send_data(self):
         # try:
         data = (self.cmd).encode()
+        self.cmd = None
         self.conn.sendall(data)
         # except socket.error as err:
         # print(errors['E_CUSTOM'].format(**globals()), err)

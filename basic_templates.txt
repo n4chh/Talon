@@ -1,3 +1,3 @@
 B_START_SES="{fg.grey}[{fg.green}*{fg.grey}]{rs.all} {fg.li_grey}Starting new session on {fg.li_yellow}{session.l_host}{fg.li_grey}:{fg.li_blue}{session.l_port}{rs.all}"
 B_CONN_ACCEPTED="{fg.grey}[{fg.green}*{fg.grey}]{rs.all} {fg.li_grey}Connection Accepted{fg.li_grey}"
-B_END_SES="{fg.grey}[{fg.yellow}*{fg.grey}]{rs.all} {fg.li_grey}Session ended correctly: [{fg.li_yellow}{session.l_host}{fg.li_grey}:{fg.li_blue}{session.l_port}{rs.all}]"
+B_END_SES="{fg.grey}[{fg.yellow}*{fg.grey}]{rs.all} {fg.li_grey}Session ended correctly: [{fg.li_yellow}{session.l_host}{fg.li_grey}:{fg.li_blue}{session.l_port}{fg.li_grey}]{rs.all}"
