@@ -17,7 +17,15 @@ def print_logo():
         logo = file.read()
     print(f"{fg(35, 173, 245)}{logo}{rs.all}")
 
-
+# def binwrite(s, data):
+#     """write bytes to stream"""
+#     if hasattr(s, "mode") and "b" in s.mode:
+#       return s.write(data)
+#     elif hasattr(s, "buffer"):
+#       return s.buffer.write(data)
+#     else:
+#       return s.write(b2s(data))      
+    
 def charge_templates():
     global errors
     global basic
@@ -41,7 +49,7 @@ def parse_arguments():
     parser.add_argument('-p', '--port', type=int, default=443, required=False)
     parser.add_argument('-c', '--count', required=False,)
     parser.add_argument('-b', '--buffer-size',
-                        metavar="buffer_size", type=int, default=2048)
+                        metavar="buffer_size", type=int, default=1024)
     parser.add_argument('-q', '--quiet', required=False)
     args = parser.parse_args()
     quiet = args.quiet
@@ -80,7 +88,6 @@ class Session:
 
     def start(self):
         try:
-            
             self.connect()
             # self.handle_io_rev_shell()
             self.handle_io()
@@ -91,35 +98,41 @@ class Session:
             print(errors['E_CUSTOM'].format(**globals()), err)
 
     def handle_io_rev_shell(self):
-        set_nonblocking(sys.stdin)
+        self.status = True
+        # set_nonblocking(sys.stdin)
         set_nonblocking(sys.stdout)
-       
         while True and self.status: 
             sin = [self.conn, sys.stdin]  
             rs, _, _, = select.select(sin, [], [])
             if self.conn in rs:
                 self.recv_data()
+                if self.bytes == "}shell finished EOF{":
+                    self.status = False;
+                    break
             if sys.stdin in rs:
+                # self.cmd = input()
                 self.cmd = sys.stdin.read(1080)
                 self.send_data()
+        # while True:
+        #     self.recv_data()
+        #     print("hola")
+        #     print("metoca")
+        #     self.send_data()
+        #     print("enviado")
     
     def handle_io(self):
-        while True and self.status:
+        while True:
             self.prompt()
             if self.cmd:
                 if self.cmd == "exit":
                     self.send_data()
                     break
+                if self.cmd == "shell":
+                    self.cmd = "}shell"
+                    self.send_data()
+                    self.handle_io_rev_shell()
                 self.send_data()
-                rs, _, _ =  select.select([self.conn], [], [])
-                while rs:
-                    print("checkpoint")
-                    try:
-                        self.recv_data()
-                        rs, _, _ =  select.select([self.conn], [self.conn], [])
-                    except(BlockingIOError):
-                        rs, _, _ = select.select([self.conn], [self.conn], [])
-                        self.recv_data()
+                self.recv_data()
 
     def prompt(self):
         prompt = ANSI("{fg.li_blue}TAL(•)N {fg.grey}[--|>{rs.all} ".format(
@@ -132,29 +145,29 @@ class Session:
         self.conn, self.r_addr = self.socket.accept()
         # self.conn.shutdown(socket.SHUT_WR)
         self.conn.setblocking(False)
-        self.status = True
         print(basic['B_CONN_ACCEPTED'].format(**globals()))
 
     def recv_data(self):
-        self.buffer = self.conn.recv(self.buf_size)
-        data = self.buffer
-        print(data, end="")
-        # print((b''.join(self.buffer)).decode(), end='')
-        # PRUEBAS QUE SE REALIZARON CON LA REVERSESHELL
-        # sys.stdout.write(b''.join(self.buffer).decode())
-        # print(b''.join(self.buffer).decode(), end="")
-        # sys.stdout.flush()
-        # print(b''.join(self.buffer).decode(), end="")
-        # print(json.loads((b''.join(self.buffer)).decode('utf-8')))
-         
+        self.bytes = b''
+        while True:
+            try:
+                self.bytes = self.conn.recv(self.buf_size)
+                # print(bytes)
+                # sys.stdout.buffer.write(bytes)
+                print(bytes.decode(), end="")
+                sys.stdout.flush()
+                if len(bytes) < self.buf_size:
+                    break
+            except(BlockingIOError):
+                continue
 
     def send_data(self):
-        # try:
-        data = (self.cmd).encode()
-        self.cmd = None
-        self.conn.sendall(data)
-        # except socket.error as err:
-        # print(errors['E_CUSTOM'].format(**globals()), err)
+        try:
+            data = self.cmd.encode()
+            self.cmd = None
+            self.conn.sendall(data)
+        except socket.error as err:
+            print(errors['E_CUSTOM'].format(**globals()), err)
 
 
 if __name__ == "__main__":
@@ -163,7 +176,7 @@ if __name__ == "__main__":
     charge_templates()
     parse_arguments()
     
-    # set_nonblocking(sys.stdout)
+
     if not quiet:
         print_logo()
     addr_info = socket.getaddrinfo(host, port, type=socket.AF_INET)[0]
